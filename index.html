@@ -123,26 +123,29 @@
         /* TEACHER VIEW */
         .teacher-open-btn { position: fixed; top: 18px; right: 22px; z-index: 1200; background: linear-gradient(135deg, #f8d36a, #a855f7); color: #050816; border: none; padding: 10px 18px; border-radius: 999px; font-size: 12px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 22px rgba(248, 211, 106, 0.22); }
 
-        .teacher-small-btn {
-            margin-top: 6px;
-            background: rgba(248, 211, 106, 0.12);
-            color: #f8d36a;
-            border: 1.5px solid rgba(248, 211, 106, 0.55);
-            padding: 8px 18px;
+
+        .teacher-corner-btn {
+            position: fixed;
+            top: 18px;
+            right: 22px;
+            z-index: 2147483647;
+            pointer-events: auto;
+            display: inline-block;
+            background: linear-gradient(135deg, rgba(248, 211, 106, 0.95), rgba(168, 85, 247, 0.95));
+            color: #050816;
+            border: 1.5px solid rgba(255,255,255,0.35);
+            padding: 9px 17px;
             border-radius: 999px;
             font-size: 11px;
             font-weight: 900;
             letter-spacing: 1px;
             text-transform: uppercase;
             cursor: pointer;
-            position: relative;
-            z-index: 50;
-            box-shadow: 0 0 14px rgba(248, 211, 106, 0.14);
+            box-shadow: 0 0 22px rgba(248, 211, 106, 0.36);
         }
-        .teacher-small-btn:hover {
-            background: rgba(248, 211, 106, 0.22);
+        .teacher-corner-btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 0 20px rgba(248, 211, 106, 0.22);
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.42);
         }
 
         .teacher-screen { display: none; width: 100%; max-width: 1500px; background: rgba(255, 255, 255, 0.04); border: 2px solid var(--glass-border); border-radius: 28px; padding: 36px; backdrop-filter: blur(30px); flex-direction: column; gap: 22px; }
@@ -182,7 +185,8 @@
 <body>
     <div id="startup-error-box" style="display:none; position:fixed; top:70px; right:18px; max-width:420px; background:#7f1d1d; color:#fff; padding:12px 14px; border-radius:12px; z-index:3000; font-size:13px; box-shadow:0 0 20px rgba(0,0,0,.35);"></div>
 <div class="dashboard-screen" id="view-dashboard">
-        <div class="pill-badge">Proportional Relationships</div>
+        <button class="teacher-corner-btn" id="btn-teacher" type="button" onclick="return safeOpenTeacherView(event)">Teacher View</button>
+<div class="pill-badge">Proportional Relationships</div>
         <div>
             <h1 class="dashboard-title">PRACTICE PROBLEMS</h1>
             <p class="dashboard-subtitle">Choose a practice mode to develop your understanding of direct and inverse proportion.</p>
@@ -209,7 +213,6 @@
         
             
 </div>
-        <button class="teacher-small-btn" id="btn-teacher" type="button">Teacher View</button>
 </div>
 
     <div class="gateway-screen" id="view-gateway">
@@ -694,6 +697,43 @@
             loadQuestion();
         }
 
+
+        function shuffleAnswerChoicesForAllQuestions() {
+            function shuffleQuestion(q) {
+                if(!q || !Array.isArray(q.choices) || q.choices.length < 2 || q._choicesShuffled) return;
+
+                const originalCorrect = Number(q.correct);
+                const items = q.choices.map((choice, index) => ({
+                    choice,
+                    sketch: q.hasSketches && Array.isArray(q.sketches) ? q.sketches[index] : null,
+                    originalIndex: index
+                }));
+
+                for(let i = items.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [items[i], items[j]] = [items[j], items[i]];
+                }
+
+                q.choices = items.map(item => item.choice);
+
+                if(q.hasSketches && Array.isArray(q.sketches)) {
+                    q.sketches = items.map(item => item.sketch || "");
+                }
+
+                q.correct = items.findIndex(item => item.originalIndex === originalCorrect);
+                q._choicesShuffled = true;
+            }
+
+            if(Array.isArray(PoolDirect)) PoolDirect.forEach(shuffleQuestion);
+            if(Array.isArray(PoolInverse)) PoolInverse.forEach(shuffleQuestion);
+
+            if(typeof TestData === "object" && TestData) {
+                Object.keys(TestData).forEach(key => {
+                    if(Array.isArray(TestData[key])) TestData[key].forEach(shuffleQuestion);
+                });
+            }
+        }
+
         function loadQuestion() {
             let q;
             let ansArr;
@@ -892,7 +932,7 @@
 
         function openTeacherLogin() {
             const code = prompt("Enter Teacher Code:");
-            if(code !== "DELTA2026") {
+            if(code !== "DELTA8231970") {
                 if(code !== null) alert("Incorrect teacher code.");
                 return;
             }
@@ -1064,7 +1104,50 @@ setTimeout(() => { window.print(); }, 900);
         }
 
 
+
+        function safeOpenTeacherView(event) {
+            if(event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            const code = prompt("Enter teacher code:");
+            if(code !== "DELTA8231970") {
+                alert("Incorrect teacher code.");
+                return false;
+            }
+
+            const views = ["view-dashboard", "view-home", "view-gateway", "view-quiz", "view-results", "view-teacher"];
+            views.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.style.display = "none";
+            });
+
+            const teacherScreen = document.getElementById("view-teacher");
+            if(!teacherScreen) {
+                alert("Teacher View screen was not found.");
+                return false;
+            }
+
+            teacherScreen.style.display = "flex";
+
+            try {
+                if(typeof loadPracticeTestAccess === "function") loadPracticeTestAccess();
+            } catch(error) {
+                console.warn("Could not load practice test access.", error);
+            }
+
+            try {
+                if(typeof loadTeacherResults === "function") loadTeacherResults();
+            } catch(error) {
+                console.warn("Could not load teacher results.", error);
+            }
+
+            return false;
+        }
+
         function bindOpeningButtons() {
+            shuffleAnswerChoicesForAllQuestions();
             const directBtn = document.getElementById("btn-direct");
             const inverseBtn = document.getElementById("btn-inverse");
             const bothBtn = document.getElementById("btn-both");
@@ -1088,7 +1171,7 @@ setTimeout(() => { window.print(); }, 900);
             bindClickAndKey(directBtn, function() { startPractice("direct"); });
             bindClickAndKey(inverseBtn, function() { startPractice("inverse"); });
             bindClickAndKey(bothBtn, function() { openGateway(); });
-            bindClickAndKey(teacherBtn, function() { openTeacherLogin(); });
+            bindClickAndKey(teacherBtn, function() { safeOpenTeacherView(); });
         }
 
         document.addEventListener("DOMContentLoaded", bindOpeningButtons);
@@ -1102,6 +1185,7 @@ setTimeout(() => { window.print(); }, 900);
         window.startPractice = startPractice;
         window.openGateway = openGateway;
         window.openTeacherLogin = openTeacherLogin;
+        window.safeOpenTeacherView = safeOpenTeacherView;
         window.setPracticeTestAccess = setPracticeTestAccess;
         window.launchTest = launchTest;
 
