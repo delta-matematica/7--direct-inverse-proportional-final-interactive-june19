@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proportion Training Suite - Professional Edition</title>
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' },
+            startup: {
+                typeset: true
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // SUPABASE SETTINGS
+        // Replace these two values with your own Supabase Project URL and publishable anon key.
+        const SUPABASE_URL = "https://fpqmmpjcreofyujkfrda.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_PvlttSZZTobD3qcfb8-s8Q_elIOLyn0";
+        const SUPABASE_TABLE = "proportion_results";
+        const SUPABASE_ACCESS_TABLE = "practice_test_access";
+
+        const supabaseReady = SUPABASE_URL.startsWith("https://") && !SUPABASE_KEY.startsWith("PASTE_");
+
+        // Safe Supabase startup:
+        // This prevents the whole game from freezing if the Supabase CDN loads slowly,
+        // is blocked, or is temporarily unavailable.
+        let supabaseClient = null;
+        try {
+            if (supabaseReady && window.supabase) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            } else {
+                console.warn("Supabase is not ready yet. The game will still run, and results will be saved locally.");
+            }
+        } catch (error) {
+            console.warn("Supabase startup error. The game will still run locally.", error);
+            supabaseClient = null;
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at center, #162030 0%, #0a0f18 100%);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-sub: #cbd5e1;
+            --accent-direct: #00e5ff;
+            --accent-inverse: #ff0080;
+            --accent-both: #a855f7;
+            --dynamic-accent: #00e5ff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; user-select: none; }
+        body { background: var(--bg-gradient); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-main); overflow-x: hidden; padding: 20px 40px 60px 40px; position: relative; }
+
+        /* DASHBOARD */
+        .dashboard-screen { display: flex; flex-direction: column; align-items: center; gap: 25px; max-width: 1400px; width: 100%; text-align: center; }
+        .pill-badge { background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(79, 70, 229, 0.85)); border: 1px solid rgba(196, 181, 253, 0.75); box-shadow: 0 0 24px rgba(124, 58, 237, 0.28); padding: 9px 24px; font-size: 13px; font-weight: 800; letter-spacing: 2px; border-radius: 999px; text-transform: uppercase; color: #ffffff; }
+        .dashboard-title { font-size: 58px; font-weight: 900; color: #ffffff; margin-bottom: 10px; letter-spacing: 2.5px; text-transform: uppercase; text-shadow: 0 10px 35px rgba(0,0,0,0.35); }
+        .dashboard-subtitle { font-size: 20px; color: #cbd5e1; margin-bottom: 20px; line-height: 1.45; }
+        .module-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; width: 100%; }
+        .module-card { touch-action: manipulation; position: relative; z-index: 5; background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)); border: 1.5px solid var(--glass-border); border-radius: 28px; padding: 48px 32px; cursor: pointer; transition: all 0.25s ease; display: flex; flex-direction: column; align-items: center; box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28); position: relative; overflow: hidden; }
+        .module-card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at top, rgba(255,255,255,0.12), transparent 45%); opacity: 0.7; pointer-events: none; }
+        .module-card:hover { transform: translateY(-6px); border-color: rgba(255, 255, 255, 0.55); background: linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)); box-shadow: 0 28px 70px rgba(0, 0, 0, 0.38); }
+        .card-icon { font-size: 44px; margin-bottom: 25px; filter: drop-shadow(0 0 14px currentColor); display:flex; align-items:center; justify-content:center; min-height:64px; }
+        .card-icon svg { width: 62px; height: 62px; overflow: visible; }
+        .card-direct .card-icon { color: var(--accent-direct); }
+        .card-inverse .card-icon { color: var(--accent-inverse); }
+        .card-both .card-icon { color: var(--accent-both); }
+        .card-title { font-size: 21px; font-weight: 900; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1.3px; }
+        .card-direct .card-title { color: var(--accent-direct); }
+        .card-inverse .card-title { color: var(--accent-inverse); }
+        .card-both .card-title { color: var(--accent-both); }
+        .card-desc { font-size: 15px; color: #cbd5e1; line-height: 1.65; margin-bottom: 35px; max-width: 300px; }
+        .count-pill { background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255,255,255,0.18); padding: 9px 22px; font-size: 14px; font-weight: 800; border-radius: 999px; color: #ffffff; letter-spacing: 0.5px; }
+
+        @media (max-width: 1100px) { .module-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 720px) { .module-grid { grid-template-columns: 1fr; } }
+
+        /* GATEWAY */
+        .gateway-screen { display: none; width: 100%; max-width: 950px; background: rgba(255, 255, 255, 0.04); border: 2px solid var(--glass-border); border-radius: 28px; padding: 40px; backdrop-filter: blur(30px); flex-direction: column; gap: 30px; text-align: center; }
+        .input-row { display: flex; gap: 20px; width: 100%; }
+        .input-group { flex: 1; text-align: left; }
+        .input-group label { display: block; font-size: 12px; font-weight: 800; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; }
+        .input-group input { width: 100%; background: rgba(0, 0, 0, 0.3); border: 1.5px solid var(--glass-border); border-radius: 12px; padding: 12px 18px; color: #fff; font-size: 18px; text-transform: uppercase; outline: none; }
+        .tracking-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .tracking-table th, .tracking-table td { border: 1px solid var(--glass-border); padding: 15px; text-align: center; }
+        .tracking-table th { background: rgba(255, 255, 255, 0.05); color: var(--accent-both); text-transform: uppercase; font-size: 13px; }
+        .locked-row { opacity: 0.3; pointer-events: none; }
+        .launch-btn { background: var(--accent-both); color: #000; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; text-transform: uppercase; font-size: 13px; }
+        .launch-btn:disabled { background: #475569; cursor: not-allowed; }
+        .completed-test-note { color: #f8d36a; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+        .locked-completed-row { opacity: 0.55; }
+
+        /* QUIZ */
+        .quiz-screen { display: none; width: 100%; max-width: 1650px; flex-direction: column; gap: 10px; }
+        .workspace-container { width: 100%; background: rgba(255, 255, 255, 0.04); border: 2px solid var(--glass-border); border-radius: 28px; padding: 40px; backdrop-filter: blur(30px); display: flex; flex-direction: column; gap: 30px; }
+        .two-column-layout { display: flex; gap: 40px; }
+        .problem-column { flex: 1.4; background: rgba(0, 0, 0, 0.25); border-radius: 20px; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
+        .problem-header { font-size: 18px; font-weight: 700; color: var(--dynamic-accent); text-transform: uppercase; margin-bottom: 20px; }
+        .problem-statement { font-size: 26px; line-height: 1.5; font-weight: 500; margin-bottom: 25px; }
+        .horiz-math-table { width: 100%; border-collapse: collapse; font-size: 24px; text-align: center; margin-bottom: 20px; }
+        .horiz-math-table th, .horiz-math-table td { border: 2px solid var(--glass-border); padding: 12px; }
+        .choices-column { flex: 1.2; display: flex; flex-direction: column; gap: 15px; justify-content: center; }
+        .choice-option { background: rgba(255, 255, 255, 0.03); border: 2px solid var(--glass-border); border-radius: 18px; padding: 18px 22px; text-align: left; color: #fff; font-size: 22px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 15px; }
+        .choice-option:hover { background: rgba(255, 255, 255, 0.08); border-color: #fff; }
+        .choice-option.selected { border-color: var(--dynamic-accent); background: rgba(255, 255, 255, 0.1); }
+        .choice-letter { color: var(--dynamic-accent); background: rgba(255, 255, 255, 0.05); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 800; border: 1px solid var(--glass-border); }
+        .sketch-container { width: 50px; height: 50px; background: rgba(0,0,0,0.4); border-radius: 6px; margin-left: auto; }
+        .grid-matrix { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .node-btn { width: 40px; height: 40px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); color: #fff; border-radius: 10px; font-weight: 700; cursor: pointer; }
+        .node-btn.active-node { background: var(--dynamic-accent) !important; color: #000 !important; }
+        .node-btn.answered-node { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.4); }
+
+        /* TEACHER VIEW */
+        .teacher-open-btn { position: fixed; top: 18px; right: 22px; z-index: 1200; background: linear-gradient(135deg, #f8d36a, #a855f7); color: #050816; border: none; padding: 10px 18px; border-radius: 999px; font-size: 12px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 22px rgba(248, 211, 106, 0.22); }
+
+        .teacher-small-btn {
+            margin-top: 6px;
+            background: rgba(248, 211, 106, 0.12);
+            color: #f8d36a;
+            border: 1.5px solid rgba(248, 211, 106, 0.55);
+            padding: 8px 18px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            z-index: 50;
+            box-shadow: 0 0 14px rgba(248, 211, 106, 0.14);
+        }
+        .teacher-small-btn:hover {
+            background: rgba(248, 211, 106, 0.22);
+            transform: translateY(-1px);
+            box-shadow: 0 0 20px rgba(248, 211, 106, 0.22);
+        }
+
+        .teacher-screen { display: none; width: 100%; max-width: 1500px; background: rgba(255, 255, 255, 0.04); border: 2px solid var(--glass-border); border-radius: 28px; padding: 36px; backdrop-filter: blur(30px); flex-direction: column; gap: 22px; }
+        .teacher-header-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .teacher-title { font-size: 36px; font-weight: 900; letter-spacing: 1px; color: #fff; text-transform: uppercase; }
+        .teacher-subtitle { color: #94a3b8; font-size: 15px; margin-top: 6px; }
+        .teacher-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+        .teacher-btn { background: rgba(255,255,255,0.08); color: #fff; border: 1.5px solid var(--glass-border); border-radius: 12px; padding: 11px 16px; font-size: 12px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; cursor: pointer; }
+        .teacher-btn.primary { background: #f8d36a; color: #050816; border-color: #f8d36a; }
+        .teacher-btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.5); }
+        .access-panel { background: rgba(255,255,255,0.035); border: 1px solid var(--glass-border); border-radius: 18px; padding: 18px; }
+        .access-title { font-size: 15px; font-weight: 900; color: #f8d36a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .access-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .access-card { background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 14px; text-align: center; }
+        .access-card-title { font-size: 13px; font-weight: 900; text-transform: uppercase; color: #fff; margin-bottom: 8px; }
+        .access-status { font-size: 12px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; }
+        .access-status.open { color: #22c55e; }
+        .access-status.closed { color: #f87171; }
+        .access-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .access-btn { border: none; border-radius: 999px; padding: 7px 11px; font-size: 11px; font-weight: 900; text-transform: uppercase; cursor: pointer; }
+        .access-btn.open { background: #22c55e; color: #03130a; }
+        .access-btn.close { background: #ef4444; color: #fff; }
+        @media (max-width: 1000px) { .access-grid { grid-template-columns: 1fr 1fr; } }
+
+                .teacher-table-wrap { overflow-x: auto; border-radius: 18px; border: 1px solid var(--glass-border); }
+        .teacher-table { width: 100%; border-collapse: collapse; min-width: 960px; }
+        .teacher-table th, .teacher-table td { border-bottom: 1px solid rgba(255,255,255,0.12); padding: 14px 12px; text-align: left; font-size: 14px; }
+        .teacher-table th { background: rgba(255,255,255,0.07); color: #f8d36a; text-transform: uppercase; font-size: 12px; letter-spacing: .8px; }
+        .teacher-table tr:hover td { background: rgba(255,255,255,0.035); }
+        .score-pill { display: inline-flex; min-width: 64px; justify-content: center; border-radius: 999px; padding: 6px 10px; font-weight: 900; background: rgba(248, 211, 106, 0.14); color: #f8d36a; border: 1px solid rgba(248, 211, 106, 0.32); }
+        .status-note { color: #94a3b8; font-size: 13px; }
+
+        /* COPYRIGHT FOOTER */
+        .app-footer { position: fixed; bottom: 0; left: 0; width: 100%; padding: 15px 0; text-align: center; background: rgba(10, 15, 24, 0.88); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,0.14); font-size: 16px; letter-spacing: 1.2px; font-weight: 800; color: #f8d36a; text-transform: uppercase; text-shadow: 0 0 10px rgba(248,211,106,0.28); z-index: 1000; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="startup-error-box" style="display:none; position:fixed; top:70px; right:18px; max-width:420px; background:#7f1d1d; color:#fff; padding:12px 14px; border-radius:12px; z-index:3000; font-size:13px; box-shadow:0 0 20px rgba(0,0,0,.35);"></div>
+<div class="dashboard-screen" id="view-dashboard">
+        <div class="pill-badge">Proportional Relationships</div>
+        <div>
+            <h1 class="dashboard-title">PRACTICE PROBLEMS</h1>
+            <p class="dashboard-subtitle">Choose a practice mode to develop your understanding of direct and inverse proportion.</p>
+        </div>
+        <div class="module-grid">
+            <div class="module-card card-direct" id="btn-direct" role="button" tabindex="0">
+                <div class="card-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><line x1="10" y1="52" x2="54" y2="52" stroke="rgba(255,255,255,0.24)" stroke-width="2.8" stroke-linecap="round"/><line x1="12" y1="54" x2="12" y2="10" stroke="rgba(255,255,255,0.24)" stroke-width="2.8" stroke-linecap="round"/><line x1="20" y1="12" x2="20" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="28" y1="12" x2="28" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="36" y1="12" x2="36" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="44" y1="12" x2="44" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="44" x2="52" y2="44" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="36" x2="52" y2="36" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="28" x2="52" y2="28" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="20" x2="52" y2="20" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="14" y1="50" x2="48" y2="18" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/></svg></div>
+                <h2 class="card-title">Direct Proportion Only</h2>
+                <p class="card-desc">Practice constant-ratio relationships represented by $y = kx$.</p>
+                <div class="count-pill">25 Questions</div>
+            </div>
+            <div class="module-card card-inverse" id="btn-inverse" role="button" tabindex="0">
+                <div class="card-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><line x1="10" y1="52" x2="54" y2="52" stroke="rgba(255,255,255,0.24)" stroke-width="2.8" stroke-linecap="round"/><line x1="12" y1="54" x2="12" y2="10" stroke="rgba(255,255,255,0.24)" stroke-width="2.8" stroke-linecap="round"/><line x1="20" y1="12" x2="20" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="28" y1="12" x2="28" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="36" y1="12" x2="36" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="44" y1="12" x2="44" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="44" x2="52" y2="44" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="36" x2="52" y2="36" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="28" x2="52" y2="28" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="20" x2="52" y2="20" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><path d="M 18 18 C 23 26, 27 32, 31 37 C 36 42, 42 47, 50 52" stroke="currentColor" stroke-width="4.5" fill="none" stroke-linecap="round"/></svg></div>
+                <h2 class="card-title">Inverse Proportion Only</h2>
+                <p class="card-desc">Practice constant-product relationships represented by $y = \frac{k}{x}$.</p>
+                <div class="count-pill">25 Questions</div>
+            </div>
+            <div class="module-card card-both" id="btn-both" role="button" tabindex="0">
+                <div class="card-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><line x1="10" y1="52" x2="54" y2="52" stroke="rgba(255,255,255,0.24)" stroke-width="2.8" stroke-linecap="round"/><line x1="12" y1="54" x2="12" y2="10" stroke="rgba(255,255,255,0.24)" stroke-width="2.8" stroke-linecap="round"/><line x1="20" y1="12" x2="20" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="28" y1="12" x2="28" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="36" y1="12" x2="36" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="44" y1="12" x2="44" y2="52" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="44" x2="52" y2="44" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="36" x2="52" y2="36" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="28" x2="52" y2="28" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="12" y1="20" x2="52" y2="20" stroke="rgba(255,255,255,0.12)" stroke-width="1.3"/><line x1="14" y1="49" x2="31" y2="33" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M 24 18 C 30 25, 35 32, 40 39 C 44 44, 47 48, 50 52" stroke="currentColor" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.92"/></svg></div>
+                <h2 class="card-title">Both Direct & Inverse</h2>
+                <p class="card-desc">Complete mixed practice tests covering both direct and inverse proportional relationships.</p>
+                <div class="count-pill">30 Questions</div>
+            </div>
+        
+            
+</div>
+        <button class="teacher-small-btn" id="btn-teacher" type="button">Teacher View</button>
+</div>
+
+    <div class="gateway-screen" id="view-gateway">
+        <div class="pill-badge" style="color:var(--accent-both); border-color:var(--accent-both)">Assessment Gateway</div>
+        <h1 class="dashboard-title" style="font-size:38px">Practice Test Profile</h1>
+        <div class="input-row">
+            <div class="input-group">
+                <label>Last Name</label>
+                <input type="text" id="student-last" oninput="this.value = this.value.toUpperCase()">
+            </div>
+            <div class="input-group">
+                <label>First Name</label>
+                <input type="text" id="student-first" oninput="this.value = this.value.toUpperCase()">
+            </div>
+        </div>
+        <table class="tracking-table">
+            <thead><tr><th>Practice Test</th><th>Date Completed</th><th>Percentage</th><th>Action</th></tr></thead>
+            <tbody id="gateway-table-body"></tbody>
+        </table>
+        <button class="pill-badge" onclick="closeGateway()" style="margin-top:20px; cursor:pointer">Back to Menu</button>
+    </div>
+
+    <div class="quiz-screen" id="view-quiz">
+        <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:10px">
+            <div class="nav-center-title" id="quiz-header">Processing Matrix</div>
+            <button class="pill-badge" onclick="exitQuiz()" style="cursor:pointer">Exit to Menu</button>
+        </div>
+        <div class="workspace-container">
+            <div class="two-column-layout">
+                <div class="problem-column">
+                    <div class="problem-header" id="prob-num">Question 1</div>
+                    <div class="problem-statement" id="prob-text"></div>
+                    <div id="prob-table-area"></div>
+                </div>
+                <div class="choices-column" id="choices-area"></div>
+            </div>
+            <div class="navigation-hub">
+                <div class="pill-badge" style="margin-bottom:10px">Navigation Track</div>
+                <div class="grid-matrix" id="node-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="teacher-screen" id="view-teacher">
+        <div class="teacher-header-row">
+            <div>
+                <div class="pill-badge" style="color:#f8d36a; border-color:rgba(248,211,106,0.7)">Teacher Dashboard</div>
+                <h1 class="teacher-title">Student Results</h1>
+                <p class="teacher-subtitle">View saved Supabase results and print a professional student report.</p>
+            </div>
+            <div class="teacher-actions">
+                <button class="teacher-btn primary" onclick="loadTeacherResults()">Refresh Results</button>
+                <button class="teacher-btn" onclick="exitTeacherView()">Back to Menu</button>
+            </div>
+        </div>
+        <div class="access-panel">
+            <div class="access-title">Practice Test Access Control</div>
+            <div class="access-grid" id="access-control-grid">
+                <div class="access-card"><div class="access-card-title">Test 1</div><div class="access-status closed">Loading...</div></div>
+                <div class="access-card"><div class="access-card-title">Test 2</div><div class="access-status closed">Loading...</div></div>
+                <div class="access-card"><div class="access-card-title">Test 3</div><div class="access-status closed">Loading...</div></div>
+                <div class="access-card"><div class="access-card-title">Test 4</div><div class="access-status closed">Loading...</div></div>
+            </div>
+        </div>
+        <div class="status-note" id="teacher-status">Results will appear here after students complete a practice mode.</div>
+        <div class="teacher-table-wrap">
+            <table class="teacher-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Student</th>
+                        <th>Mode</th>
+                        <th>Test</th>
+                        <th>Score</th>
+                        <th>Percentage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="teacher-results-body">
+                    <tr><td colspan="7">No results loaded yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        &copy; 2026 DELTA MATEMATICA | LUIS RAMOS JR. All Rights Reserved.
+    </footer>
+
+    <script>
+        window.addEventListener("error", function(event) {
+            const box = document.getElementById("startup-error-box");
+            if (box) {
+                box.style.display = "block";
+                box.innerHTML = "<strong>Script error:</strong><br>" + event.message;
+            }
+            console.error("Script error:", event.message, event.error);
+        });
+
+        const PoolDirect = [
+            { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 4, tableData: { x: [2, 4, 6, 8], y: [10, 20, 30, 40] }, choices: ["Yes, because $\\frac{y}{x} = 5$ is constant.", "No, because values are increasing.", "Yes, because $xy = 20$.", "No, because the ratio changes."], correct: 0 },
+            { text: "Which equation represents a direct proportion with $k = 4$?", choices: ["$y = 4x$", "$y = \\frac{4}{x}$", "$y = x + 4$", "$xy = 4$"], correct: 0 },
+            { text: "Find $k$ if $y$ is directly proportional to $x$, and $y = 18$ when $x = 3$.", choices: ["$k = 6$", "$k = 54$", "$k = 0,16$", "$k = 15$"], correct: 0 },
+            { text: "If $y$ is directly proportional to $x$ and $y = 35$ when $x = 5$, find $y$ when $x = 9$.", choices: ["$y = 63$", "$y = 45$", "$y = 70$", "$y = 56$"], correct: 0 },
+            { text: "Which graph shows a direct proportion?", hasSketches: true, choices: ["", "", "", ""], sketches: [
+                `<svg class="sketch-container" viewBox="0 0 100 100"><line x1="15" y1="90" x2="85" y2="20" stroke="#00e5ff" stroke-width="3"/></svg>`,
+                `<svg class="sketch-container" viewBox="0 0 100 100"><path d="M 20 20 Q 50 80 80 85" stroke="#ff0080" stroke-width="3" fill="none"/></svg>`,
+                `<svg class="sketch-container" viewBox="0 0 100 100"><line x1="10" y1="50" x2="90" y2="50" stroke="#fff" stroke-width="2"/></svg>`,
+                `<svg class="sketch-container" viewBox="0 0 100 100"><line x1="20" y1="10" x2="20" y2="90" stroke="#fff" stroke-width="2"/></svg>`
+            ], correct: 0 },
+            { text: "Find $y$ in a direct proportion when $x = 12$ if $y = 20$ when $x = 4$.", choices: ["$y = 60$", "$y = 40$", "$y = 5$", "$y = 24$"], correct: 0 },
+            { text: "Find $k$ for the points $(2,14)$ and $(5,35)$.", choices: ["$k = 7$", "$k = 12$", "$k = 0,14$", "$k = 28$"], correct: 0 },
+            { text: "A worker earns $\\text{\\$}12$ per hour. How much will the worker earn in $7\\text{ hours}$?", choices: ["$\\text{\\$}84$", "$\\text{\\$}72$", "$\\text{\\$}19$", "$\\text{\\$}96$"], correct: 0 },
+            { text: "Which equation represents a direct proportion if $y = 32$ when $x = 8$?", choices: ["$y = 4x$", "$y = \\frac{4}{x}$", "$y = \\frac{1}{4}x$", "$xy = 32$"], correct: 0 },
+            { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [1, 3, 5], y: [4, 12, 20] }, choices: ["Yes, $k = 4$", "No", "Yes, $k = 0,25$", "No, it is inverse"], correct: 0 },
+            { text: "If $y = 1,5x$, find $y$ when $x = 6$.", choices: ["$y = 9$", "$y = 4$", "$y = 7,5$", "$y = 12$"], correct: 0 },
+            { text: "Find the missing value $A$ in the direct proportion table.", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 6], y: [16, "A", 48] }, choices: ["$A = 32$", "$A = 24$", "$A = 36$", "$A = 40$"], correct: 0 },
+            { text: "A recipe uses $3\\text{ cups}$ of flour to make $12\\text{ muffins}$. How many cups of flour are needed for $36\\text{ muffins}$?", choices: ["$9\\text{ cups}$", "$6\\text{ cups}$", "$12\\text{ cups}$", "$8\\text{ cups}$"], correct: 0 },
+            { text: "Which direct proportion equation passes through $(5,50)$?", choices: ["$y = 10x$", "$y = \\frac{10}{x}$", "$y = 5x$", "$y = x + 45$"], correct: 0 },
+            { text: "Find $k$ if $y = 7$ when $x = 21$.", choices: ["$k = \\frac{1}{3}$", "$k = 3$", "$k = 14$", "$k = 42$"], correct: 0 },
+            { text: "On a map, $2\\text{ cm}$ represents $5\\text{ km}$. How many kilometers are represented by $8\\text{ cm}$?", choices: ["$20\\text{ km}$", "$16\\text{ km}$", "$25\\text{ km}$", "$10\\text{ km}$"], correct: 0 },
+            { text: "Find $M$ if $(4,10)$ and $(12,M)$ are in a direct proportion.", choices: ["$M = 30$", "$M = 24$", "$M = 40$", "$M = 20$"], correct: 0 },
+            { text: "If $y$ is directly proportional to $x$ and passes through $(3,15)$, find $y$ when $x = 7$.", choices: ["$y = 35$", "$y = 21$", "$y = 45$", "$y = 28$"], correct: 0 },
+            { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 9], y: [1, 2, 3] }, choices: ["Yes, $k = \\frac{1}{3}$", "No", "Yes, $k = 3$", "No, it is linear offset"], correct: 0 },
+            { text: "Which equation represents a direct proportion with $k = 0,5$?", choices: ["$y = 0,5x$", "$y = \\frac{0,5}{x}$", "$y = x + 0,5$", "$y = 2x$"], correct: 0 },
+            { text: "Find $y$ in a direct proportion when $x = 15$ if $y = 9$ when $x = 3$.", choices: ["$y = 45$", "$y = 27$", "$y = 5$", "$y = 30$"], correct: 0 },
+            { text: "A printer prints $45\\text{ pages}$ in $3\\text{ minutes}$. How many pages can it print in $8\\text{ minutes}$?", choices: ["$120\\text{ pages}$", "$90\\text{ pages}$", "$135\\text{ pages}$", "$105\\text{ pages}$"], correct: 0 },
+            { text: "Find the missing value $A$ in the direct proportion table.", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 9], y: [21, "A", 63] }, choices: ["$A = 42$", "$A = 35$", "$A = 48$", "$A = 36$"], correct: 0 },
+            { text: "Which direct proportion equation passes through $(6,18)$?", choices: ["$y = 3x$", "$y = \\frac{3}{x}$", "$y = 12x$", "$y = x + 12$"], correct: 0 },
+            { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [4, 8, 12], y: [2, 4, 6] }, choices: ["Yes, $k = 0,5$", "No", "Yes, $k = 2$", "No, it is inverse"], correct: 0 }
+        ];
+
+        const PoolInverse = [
+            { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 4, tableData: { x: [2, 4, 6, 8], y: [24, 12, 8, 6] }, choices: ["Yes, because the product $xy = 48$ is constant.", "No, because $y$ decreases as $x$ increases.", "Yes, because the ratio $\\frac{y}{x}$ is 12.", "No, because it is not a straight line."], correct: 0 },
+            { text: "Which equation represents an inverse proportion with $k = 12$?", choices: ["$y = \\frac{12}{x}$", "$y = 12x$", "$y = x - 12$", "$\\frac{y}{x} = 12$"], correct: 0 },
+            { text: "Find $k$ if $y$ is inversely proportional to $x$, and $y = 4$ when $x = 10$.", choices: ["$k = 40$", "$k = 2,5$", "$k = 0,4$", "$k = 14$"], correct: 0 },
+            { text: "If $y$ is inversely proportional to $x$ and $y = 6$ when $x = 4$, find $y$ when $x = 8$.", choices: ["$y = 3$", "$y = 12$", "$y = 2$", "$y = 1,5$"], correct: 0 },
+            { text: "Which graph shows an inverse proportion?", hasSketches: true, choices: ["", "", "", ""], sketches: [
+                `<svg class="sketch-container" viewBox="0 0 100 100"><line x1="12" y1="88" x2="90" y2="88" stroke="#64748b" stroke-width="2"/><line x1="12" y1="88" x2="12" y2="10" stroke="#64748b" stroke-width="2"/><path d="M 18 78 C 30 65, 40 52, 50 42 C 60 33, 72 25, 84 18" stroke="#00e5ff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`,
+                `<svg class="sketch-container" viewBox="0 0 100 100"><line x1="12" y1="88" x2="90" y2="88" stroke="#64748b" stroke-width="2"/><line x1="12" y1="88" x2="12" y2="10" stroke="#64748b" stroke-width="2"/><path d="M 18 18 C 24 34, 32 48, 44 58 C 56 68, 70 76, 86 82" stroke="#ff0080" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`,
+                `<svg class="sketch-container" viewBox="0 0 100 100"><line x1="12" y1="88" x2="90" y2="88" stroke="#64748b" stroke-width="2"/><line x1="12" y1="88" x2="12" y2="10" stroke="#64748b" stroke-width="2"/><path d="M 18 82 C 30 80, 42 74, 56 62 C 68 50, 78 34, 88 16" stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`,
+                `<svg class="sketch-container" viewBox="0 0 100 100"><line x1="12" y1="88" x2="90" y2="88" stroke="#64748b" stroke-width="2"/><line x1="12" y1="88" x2="12" y2="10" stroke="#64748b" stroke-width="2"/><path d="M 18 72 C 30 42, 48 22, 62 32 C 72 39, 79 56, 86 78" stroke="#facc15" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`
+            ], correct: 1 },
+            { text: "Find $y$ in an inverse proportion when $x = 8$ if $y = 6$ when $x = 4$.", choices: ["$y = 3$", "$y = 12$", "$y = 2$", "$y = 4,8$"], correct: 0 },
+            { text: "Find $k$ for the points $(3,10)$ and $(5,6)$.", choices: ["$k = 30$", "$k = 3,33$", "$k = 15$", "$k = 60$"], correct: 0 },
+            { text: "$4$ workers can finish a job in $12\\text{ days}$. How many days will $6$ workers take?", choices: ["$8\\text{ days}$", "$18\\text{ days}$", "$6\\text{ days}$", "$10\\text{ days}$"], correct: 0 },
+            { text: "Which equation represents an inverse proportion if $y = 9$ when $x = 2$?", choices: ["$y = \\frac{18}{x}$", "$y = 18x$", "$y = 4,5x$", "$y = \\frac{4,5}{x}$"], correct: 0 },
+            { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 8], y: [16, 8, 4] }, choices: ["Yes, $k = 32$", "No", "Yes, $k = 8$", "No, it is direct"], correct: 0 },
+            { text: "If $y = \frac{24}{x}$, find $y$ when $x = 6$.", choices: ["$y = 4$", "$y = 144$", "$y = 18$", "$y = 3$"], correct: 0 },
+            { text: "Find the missing value $A$ in the inverse proportion table.", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 9], y: [12, "A", 4] }, choices: ["$A = 6$", "$A = 8$", "$A = 4$", "$A = 5$"], correct: 0 },
+            { text: "A car takes $6\\text{ hours}$ to complete a trip at $60\\text{ km/h}$. How long will it take at $90\\text{ km/h}$?", choices: ["$4\\text{ hours}$", "$9\\text{ hours}$", "$3\\text{ hours}$", "$5\\text{ hours}$"], correct: 0 },
+            { text: "Which inverse proportion equation passes through $(2,25)$?", choices: ["$y = \\frac{50}{x}$", "$y = 50x$", "$y = 12,5x$", "$y = \\frac{12,5}{x}$"], correct: 0 },
+            { text: "Find $k$ if $y = 3$ when $x = 12$.", choices: ["$k = 36$", "$k = 4$", "$k = 0,25$", "$k = 15$"], correct: 0 },
+            { text: "A food supply lasts $15\\text{ days}$ for $8$ people. How long will it last for $12$ people?", choices: ["$10\\text{ days}$", "$18\\text{ days}$", "$12\\text{ days}$", "$8\\text{ days}$"], correct: 0 },
+            { text: "Find $M$ if $(3,20)$ and $(6,M)$ are in an inverse proportion.", choices: ["$M = 10$", "$M = 40$", "$M = 5$", "$M = 15$"], correct: 0 },
+            { text: "If $y$ is inversely proportional to $x$ and passes through $(4,5)$, find $y$ when $x = 2$.", choices: ["$y = 10$", "$y = 2,5$", "$y = 20$", "$y = 8$"], correct: 0 },
+            { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 6], y: [12, 6, 3] }, choices: ["No, because the product changes.", "Yes, $k = 24$", "Yes, $k = 6$", "No, it is linear"], correct: 0 },
+            { text: "Which equation represents an inverse proportion with $k = 100$?", choices: ["$y = \\frac{100}{x}$", "$y = 100x$", "$xy = 1$", "$y = x + 100$"], correct: 0 },
+            { text: "Find $y$ in an inverse proportion when $x = 10$ if $y = 5$ when $x = 4$.", choices: ["$y = 2$", "$y = 12,5$", "$y = 4$", "$y = 1$"], correct: 0 },
+            { text: "$3$ pipes can fill a tank in $20\\text{ minutes}$. How long will $5$ pipes take?", choices: ["$12\\text{ minutes}$", "$15\\text{ minutes}$", "$10\\text{ minutes}$", "$18\\text{ minutes}$"], correct: 0 },
+            { text: "If $y = \frac{40}{x}$, find $y$ when $x = 8$.", choices: ["$y = 5$", "$y = 320$", "$y = 20$", "$y = 4$"], correct: 0 },
+            { text: "Find the missing value $A$ in the inverse proportion table.", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 8], y: [20, "A", 5] }, choices: ["$A = 10$", "$A = 12$", "$A = 8$", "$A = 15$"], correct: 0 },
+            { text: "Which inverse proportion equation passes through $(5,8)$?", choices: ["$y = \\frac{40}{x}$", "$y = 40x$", "$y = 1,6x$", "$xy = 13$"], correct: 0 }
+        ];
+
+        const TestData = {
+            1: [
+                { text: "Find $y$ in a direct proportion when $x = 12$ if $y = 20$ when $x = 4$.", choices: ["$y = 60$", "$y = 40$", "$y = 5$", "$y = 24$"], correct: 0 },
+                { text: "Find $k$ for the points $(2,14)$ and $(5,35)$.", choices: ["$k = 7$", "$k = 12$", "$k = 0,14$", "$k = 28$"], correct: 0 },
+                { text: "A worker earns $\\text{\\$}12$ per hour. How much will the worker earn in $7\\text{ hours}$?", choices: ["$\\text{\\$}84$", "$\\text{\\$}72$", "$\\text{\\$}19$", "$\\text{\\$}96$"], correct: 0 },
+                { text: "Which equation represents a direct proportion if $y = 32$ when $x = 8$?", choices: ["$y = 4x$", "$y = \\frac{4}{x}$", "$y = \\frac{1}{4}x$", "$xy = 32$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [1, 3, 5], y: [4, 12, 20] }, choices: ["Yes, $k = 4$", "No", "Yes, $k = 0,25$", "No, it is inverse"], correct: 0 },
+                { text: "If $y = 1,5x$, find $y$ when $x = 6$.", choices: ["$y = 9$", "$y = 4$", "$y = 7,5$", "$y = 12$"], correct: 0 },
+                { text: "Find the missing value $A$ in the direct proportion table.", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 6], y: [16, "A", 48] }, choices: ["$A = 32$", "$A = 24$", "$A = 36$", "$A = 40$"], correct: 0 },
+                { text: "A recipe uses $3\\text{ cups}$ of flour to make $12\\text{ muffins}$. How many cups of flour are needed for $36\\text{ muffins}$?", choices: ["$9\\text{ cups}$", "$6\\text{ cups}$", "$12\\text{ cups}$", "$8\\text{ cups}$"], correct: 0 },
+                { text: "Which direct proportion equation passes through $(5,50)$?", choices: ["$y = 10x$", "$y = \\frac{10}{x}$", "$y = 5x$", "$y = x + 45$"], correct: 0 },
+                { text: "Find $k$ if $y = 7$ when $x = 21$.", choices: ["$k = \\frac{1}{3}$", "$k = 3$", "$k = 14$", "$k = 42$"], correct: 0 },
+                { text: "On a map, $2\\text{ cm}$ represents $5\\text{ km}$. How many kilometers are represented by $8\\text{ cm}$?", choices: ["$20\\text{ km}$", "$16\\text{ km}$", "$25\\text{ km}$", "$10\\text{ km}$"], correct: 0 },
+                { text: "Find $M$ if $(4,10)$ and $(12,M)$ are in a direct proportion.", choices: ["$M = 30$", "$M = 24$", "$M = 40$", "$M = 20$"], correct: 0 },
+                { text: "If $y$ is directly proportional to $x$ and passes through $(3,15)$, find $y$ when $x = 7$.", choices: ["$y = 35$", "$y = 21$", "$y = 45$", "$y = 28$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 9], y: [1, 2, 3] }, choices: ["Yes, $k = \\frac{1}{3}$", "No", "Yes, $k = 3$", "No, it is linear offset"], correct: 0 },
+                { text: "Which equation represents a direct proportion with $k = 0,5$?", choices: ["$y = 0,5x$", "$y = \\frac{0,5}{x}$", "$y = x + 0,5$", "$y = 2x$"], correct: 0 },
+                { text: "Find $y$ in an inverse proportion when $x = 8$ if $y = 6$ when $x = 4$.", choices: ["$y = 3$", "$y = 12$", "$y = 2$", "$y = 4,8$"], correct: 0 },
+                { text: "Find $k$ for the points $(3,10)$ and $(5,6)$.", choices: ["$k = 30$", "$k = 3,33$", "$k = 15$", "$k = 60$"], correct: 0 },
+                { text: "$4$ workers can finish a job in $12\\text{ days}$. How many days will $6$ workers take?", choices: ["$8\\text{ days}$", "$18\\text{ days}$", "$6\\text{ days}$", "$10\\text{ days}$"], correct: 0 },
+                { text: "Which equation represents an inverse proportion if $y = 9$ when $x = 2$?", choices: ["$y = \\frac{18}{x}$", "$y = 18x$", "$y = 4,5x$", "$y = \\frac{4,5}{x}$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 8], y: [16, 8, 4] }, choices: ["Yes, $k = 32$", "No", "Yes, $k = 8$", "No, it is direct"], correct: 0 },
+                { text: "If $y = \frac{24}{x}$, find $y$ when $x = 6$.", choices: ["$y = 4$", "$y = 144$", "$y = 18$", "$y = 3$"], correct: 0 },
+                { text: "Find the missing value $A$ in the inverse proportion table.", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 9], y: [12, "A", 4] }, choices: ["$A = 6$", "$A = 8$", "$A = 4$", "$A = 5$"], correct: 0 },
+                { text: "A car takes $6\\text{ hours}$ to complete a trip at $60\\text{ km/h}$. How long will it take at $90\\text{ km/h}$?", choices: ["$4\\text{ hours}$", "$9\\text{ hours}$", "$3\\text{ hours}$", "$5\\text{ hours}$"], correct: 0 },
+                { text: "Which inverse proportion equation passes through $(2,25)$?", choices: ["$y = \\frac{50}{x}$", "$y = 50x$", "$y = 12,5x$", "$y = \\frac{12,5}{x}$"], correct: 0 },
+                { text: "Find $k$ if $y = 3$ when $x = 12$.", choices: ["$k = 36$", "$k = 4$", "$k = 0,25$", "$k = 15$"], correct: 0 },
+                { text: "A food supply lasts $15\\text{ days}$ for $8$ people. How long will it last for $12$ people?", choices: ["$10\\text{ days}$", "$18\\text{ days}$", "$12\\text{ days}$", "$8\\text{ days}$"], correct: 0 },
+                { text: "Find $M$ if $(3,20)$ and $(6,M)$ are in an inverse proportion.", choices: ["$M = 10$", "$M = 40$", "$M = 5$", "$M = 15$"], correct: 0 },
+                { text: "If $y$ is inversely proportional to $x$ and passes through $(4,5)$, find $y$ when $x = 2$.", choices: ["$y = 10$", "$y = 2,5$", "$y = 20$", "$y = 8$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 6], y: [12, 6, 3] }, choices: ["No, because the product changes.", "Yes, $k = 24$", "Yes, $k = 6$", "No, it is linear"], correct: 0 },
+                { text: "Which equation represents an inverse proportion with $k = 100$?", choices: ["$y = \\frac{100}{x}$", "$y = 100x$", "$xy = 1$", "$y = x + 100$"], correct: 0 }
+            ],
+            2: [
+                { text: "Find $y$ in a direct proportion when $x = 15$ if $y = 9$ when $x = 3$.", choices: ["$y = 45$", "$y = 27$", "$y = 5$", "$y = 30$"], correct: 0 },
+                { text: "Find $k$ for the points $(4,24)$ and $(7,42)$.", choices: ["$k = 6$", "$k = 8$", "$k = 0,16$", "$k = 12$"], correct: 0 },
+                { text: "A printer prints $45\\text{ pages}$ in $3\\text{ minutes}$. How many pages can it print in $8\\text{ minutes}$?", choices: ["$120\\text{ pages}$", "$90\\text{ pages}$", "$135\\text{ pages}$", "$105\\text{ pages}$"], correct: 0 },
+                { text: "Which equation represents a direct proportion if $y = 45$ when $x = 5$?", choices: ["$y = 9x$", "$y = \\frac{9}{x}$", "$y = 5x$", "$xy = 45$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 6], y: [5, 10, 15] }, choices: ["Yes, $k = 2,5$", "No", "Yes, $k = 2$", "No, it is offset"], correct: 0 },
+                { text: "If $y = 3,5x$, find $y$ when $x = 4$.", choices: ["$y = 14$", "$y = 12$", "$y = 16$", "$y = 10$"], correct: 0 },
+                { text: "Find the missing value $A$ in the direct proportion table.", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 9], y: [21, "A", 63] }, choices: ["$A = 42$", "$A = 35$", "$A = 48$", "$A = 36$"], correct: 0 },
+                { text: "A tap fills $15\\text{ liters}$ of water in $3\\text{ minutes}$. How many liters will it fill in $10\\text{ minutes}$?", choices: ["$50\\text{ liters}$", "$45\\text{ liters}$", "$60\\text{ liters}$", "$40\\text{ liters}$"], correct: 0 },
+                { text: "Which direct proportion equation passes through $(6,18)$?", choices: ["$y = 3x$", "$y = \\frac{3}{x}$", "$y = 12x$", "$y = x + 12$"], correct: 0 },
+                { text: "Find $k$ if $y = 12$ when $x = 4$.", choices: ["$k = 3$", "$k = 48$", "$k = 0,33$", "$k = 8$"], correct: 0 },
+                { text: "A machine makes $120$ bottles in $4\\text{ minutes}$. How many bottles can it make in $9\\text{ minutes}$?", choices: ["$270$ bottles", "$240$ bottles", "$300$ bottles", "$180$ bottles"], correct: 0 },
+                { text: "Find $M$ if $(5,8)$ and $(25,M)$ are in a direct proportion.", choices: ["$M = 40$", "$M = 35$", "$M = 50$", "$M = 45$"], correct: 0 },
+                { text: "If $y$ is directly proportional to $x$ and passes through $(2,11)$, find $y$ when $x = 6$.", choices: ["$y = 33$", "$y = 22$", "$y = 44$", "$y = 28$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [4, 8, 12], y: [2, 4, 6] }, choices: ["Yes, $k = 0,5$", "No", "Yes, $k = 2$", "No, it is inverse"], correct: 0 },
+                { text: "Which equation represents a direct proportion with $k = 8$?", choices: ["$y = 8x$", "$y = \\frac{8}{x}$", "$y = x + 8$", "$xy = 8$"], correct: 0 },
+                { text: "Find $y$ in an inverse proportion when $x = 10$ if $y = 5$ when $x = 4$.", choices: ["$y = 2$", "$y = 12,5$", "$y = 4$", "$y = 1$"], correct: 0 },
+                { text: "Find $k$ for the points $(2,18)$ and $(6,6)$.", choices: ["$k = 36$", "$k = 9$", "$k = 12$", "$k = 24$"], correct: 0 },
+                { text: "$3$ pipes can fill a tank in $20\\text{ minutes}$. How long will $5$ pipes take?", choices: ["$12\\text{ minutes}$", "$15\\text{ minutes}$", "$10\\text{ minutes}$", "$18\\text{ minutes}$"], correct: 0 },
+                { text: "Which equation represents an inverse proportion if $y = 7$ when $x = 3$?", choices: ["$y = \\frac{21}{x}$", "$y = 21x$", "$y = \\frac{7}{3}x$", "$xy = 10$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 12], y: [20, 10, 5] }, choices: ["Yes, $k = 60$", "No", "Yes, $k = 10$", "No, product is linear"], correct: 0 },
+                { text: "If $y = \frac{40}{x}$, find $y$ when $x = 8$.", choices: ["$y = 5$", "$y = 320$", "$y = 20$", "$y = 4$"], correct: 0 },
+                { text: "Find the missing value $A$ in the inverse proportion table.", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 8], y: [20, "A", 5] }, choices: ["$A = 10$", "$A = 12$", "$A = 8$", "$A = 15$"], correct: 0 },
+                { text: "$4$ machines complete an order in $18\\text{ hours}$. How long will $6$ machines take?", choices: ["$12\\text{ hours}$", "$27\\text{ hours}$", "$10\\text{ hours}$", "$15\\text{ hours}$"], correct: 0 },
+                { text: "Which inverse proportion equation passes through $(5,8)$?", choices: ["$y = \\frac{40}{x}$", "$y = 40x$", "$y = 1,6x$", "$xy = 13$"], correct: 0 },
+                { text: "Find $k$ if $y = 8$ when $x = 3$.", choices: ["$k = 24$", "$k = 2,67$", "$k = 11$", "$k = 32$"], correct: 0 },
+                { text: "$6$ builders can build a wall in $10\\text{ days}$. How many days will $15$ builders take?", choices: ["$4\\text{ days}$", "$25\\text{ days}$", "$6\\text{ days}$", "$5\\text{ days}$"], correct: 0 },
+                { text: "Find $M$ if $(4,15)$ and $(10,M)$ are in an inverse proportion.", choices: ["$M = 6$", "$M = 8$", "$M = 5$", "$M = 7,5$"], correct: 0 },
+                { text: "If $y$ is inversely proportional to $x$ and passes through $(3,14)$, find $y$ when $x = 6$.", choices: ["$y = 7$", "$y = 28$", "$y = 21$", "$y = 4,5$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [1, 2, 4], y: [100, 50, 25] }, choices: ["Yes, $k = 100$", "No", "Yes, $k = 50$", "No, it is exponential curve"], correct: 0 },
+                { text: "Which equation represents an inverse proportion with $k = 12$?", choices: ["$y = \\frac{12}{x}$", "$y = 12x$", "$xy = 24$", "$y = x - 12$"], correct: 0 }
+            ],
+            3: [
+                { text: "Find $y$ in a direct proportion when $x = 20$ if $y = 15$ when $x = 5$.", choices: ["$y = 60$", "$y = 45$", "$y = 50$", "$y = 75$"], correct: 0 },
+                { text: "Find $k$ for the points $(3,27)$ and $(8,72)$.", choices: ["$k = 9$", "$k = 24$", "$k = 0,11$", "$k = 18$"], correct: 0 },
+                { text: "A recipe uses $4\\text{ cups}$ of flour to make $32\\text{ muffins}$. How many cups of flour are needed for $48\\text{ muffins}$?", choices: ["$6\\text{ cups}$", "$5\\text{ cups}$", "$7\\text{ cups}$", "$8\\text{ cups}$"], correct: 0 },
+                { text: "Which equation represents a direct proportion if $y = 60$ when $x = 12$?", choices: ["$y = 5x$", "$y = \\frac{5}{x}$", "$y = 12x$", "$xy = 60$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [10, 20, 30], y: [2, 4, 6] }, choices: ["Yes, $k = 0,2$", "No", "Yes, $k = 5$", "No, product balances"], correct: 0 },
+                { text: "If $y = 2,2x$, find $y$ when $x = 10$.", choices: ["$y = 22$", "$y = 2,2$", "$y = 44$", "$y = 12$"], correct: 0 },
+                { text: "Find the missing value $A$ in the direct proportion table.", hasTable: true, tableCols: 3, tableData: { x: [5, 10, 15], y: [15, "A", 45] }, choices: ["$A = 30$", "$A = 25$", "$A = 35$", "$A = 40$"], correct: 0 },
+                { text: "A printer prints $140\\text{ pages}$ in $4\\text{ minutes}$. How many pages can it print in $9\\text{ minutes}$?", choices: ["$315\\text{ pages}$", "$280\\text{ pages}$", "$350\\text{ pages}$", "$300\\text{ pages}$"], correct: 0 },
+                { text: "Which direct proportion equation passes through $(8,24)$?", choices: ["$y = 3x$", "$y = \\frac{3}{x}$", "$y = 8x$", "$y = x + 16$"], correct: 0 },
+                { text: "Find $k$ if $y = 30$ when $x = 15$.", choices: ["$k = 2$", "$k = 450$", "$k = 0,5$", "$k = 15$"], correct: 0 },
+                { text: "A painter uses $3\\text{ liters}$ of paint to cover $9\\text{ m}^2$. How many liters are needed to cover $27\\text{ m}^2$?", choices: ["$9\\text{ liters}$", "$6\\text{ liters}$", "$12\\text{ liters}$", "$8\\text{ liters}$"], correct: 0 },
+                { text: "Find $M$ if $(7,21)$ and $(10,M)$ are in a direct proportion.", choices: ["$M = 30$", "$M = 27$", "$M = 40$", "$M = 35$"], correct: 0 },
+                { text: "If $y$ is directly proportional to $x$ and passes through $(4,13)$, find $y$ when $x = 12$.", choices: ["$y = 39$", "$y = 26$", "$y = 52$", "$y = 35$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [1, 2, 3], y: [7, 14, 21] }, choices: ["Yes, $k = 7$", "No", "Yes, $k = 14$", "No, it is shifting sequence"], correct: 0 },
+                { text: "Which equation represents a direct proportion with $k = 1,2$?", choices: ["$y = 1,2x$", "$y = \\frac{1,2}{x}$", "$y = x + 1,2$", "$xy = 1,2$"], correct: 0 },
+                { text: "Find $y$ in an inverse proportion when $x = 3$ if $y = 8$ when $x = 6$.", choices: ["$y = 16$", "$y = 4$", "$y = 24$", "$y = 12$"], correct: 0 },
+                { text: "Find $k$ for the points $(4,25)$ and $(10,10)$.", choices: ["$k = 100$", "$k = 6,25$", "$k = 50$", "$k = 40$"], correct: 0 },
+                { text: "A food supply lasts $8\\text{ days}$ for $6$ people. How long will it last for $3$ people?", choices: ["$16\\text{ days}$", "$4\\text{ days}$", "$12\\text{ days}$", "$10\\text{ days}$"], correct: 0 },
+                { text: "Which equation represents an inverse proportion if $y = 5$ when $x = 8$?", choices: ["$y = \\frac{40}{x}$", "$y = 40x$", "$y = 1,6x$", "$xy = 13$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [5, 10, 25], y: [10, 5, 2] }, choices: ["Yes, $k = 50$", "No", "Yes, $k = 25$", "No, row is direct proportion"], correct: 0 },
+                { text: "If $y = \frac{72}{x}$, find $y$ when $x = 9$.", choices: ["$y = 8$", "$y = 648$", "$y = 18$", "$y = 6$"], correct: 0 },
+                { text: "Find the missing value $A$ in the inverse proportion table.", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 10], y: [30, "A", 6] }, choices: ["$A = 15$", "$A = 12$", "$A = 20$", "$A = 10$"], correct: 0 },
+                { text: "A water supply lasts $20\\text{ days}$ for $3$ clinics. How long will it last for $5$ clinics?", choices: ["$12\\text{ days}$", "$33,3\\text{ days}$", "$15\\text{ days}$", "$10\\text{ days}$"], correct: 0 },
+                { text: "Which inverse proportion equation passes through $(3,11)$?", choices: ["$y = \\frac{33}{x}$", "$y = 33x$", "$y = 3,6x$", "$xy = 14$"], correct: 0 },
+                { text: "Find $k$ if $y = 2$ when $x = 50$.", choices: ["$k = 100$", "$k = 25$", "$k = 0,04$", "$k = 52$"], correct: 0 },
+                { text: "$3$ robots assemble a product in $24\\text{ minutes}$. How long will $8$ robots take?", choices: ["$9\\text{ minutes}$", "$64\\text{ minutes}$", "$12\\text{ minutes}$", "$8\\text{ minutes}$"], correct: 0 },
+                { text: "Find $M$ if $(5,12)$ and $(15,M)$ are in an inverse proportion.", choices: ["$M = 4$", "$M = 36$", "$M = 3$", "$M = 6$"], correct: 0 },
+                { text: "If $y$ is inversely proportional to $x$ and passes through $(2,45)$, find $y$ when $x = 10$.", choices: ["$y = 9$", "$y = 22,5$", "$y = 18$", "$y = 5$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [4, 8, 16], y: [16, 8, 4] }, choices: ["Yes, $k = 64$", "No", "Yes, $k = 4$", "No, it represents a squared functions"], correct: 0 },
+                { text: "Which equation represents an inverse proportion with $k = 45$?", choices: ["$y = \\frac{45}{x}$", "$y = 45x$", "$xy = 90$", "$y = x - 45$"], correct: 0 }
+            ],
+            4: [
+                { text: "Find $y$ in a direct proportion when $x = 30$ if $y = 8$ when $x = 6$.", choices: ["$y = 40$", "$y = 24$", "$y = 32$", "$y = 48$"], correct: 0 },
+                { text: "Find $k$ for the points $(5,45)$ and $(9,81)$.", choices: ["$k = 9$", "$k = 5$", "$k = 0,11$", "$k = 15$"], correct: 0 },
+                { text: "A cyclist travels $24\\text{ km}$ in $2\\text{ hours}$. At the same speed, how far will the cyclist travel in $5\\text{ hours}$?", choices: ["$60\\text{ km}$", "$48\\text{ km}$", "$72\\text{ km}$", "$50\\text{ km}$"], correct: 0 },
+                { text: "Which equation represents a direct proportion if $y = 100$ when $x = 4$?", choices: ["$y = 25x$", "$y = \\frac{25}{x}$", "$y = 4x$", "$xy = 100$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 12], y: [9, 18, 36] }, choices: ["Yes, $k = 3$", "No", "Yes, $k = 0,33$", "No, row is exponential"], correct: 0 },
+                { text: "If $y = 1,1x$, find $y$ when $x = 50$.", choices: ["$y = 55$", "$y = 5,5$", "$y = 45$", "$y = 60$"], correct: 0 },
+                { text: "Find the missing value $A$ in the direct proportion table.", hasTable: true, tableCols: 3, tableData: { x: [4, 8, 12], y: [28, "A", 84] }, choices: ["$A = 56$", "$A = 48$", "$A = 60$", "$A = 52$"], correct: 0 },
+                { text: "A machine labels $300\\text{ boxes}$ in $6\\text{ minutes}$. How many boxes can it label in $15\\text{ minutes}$?", choices: ["$750\\text{ boxes}$", "$600\\text{ boxes}$", "$900\\text{ boxes}$", "$700\\text{ boxes}$"], correct: 0 },
+                { text: "Which direct proportion equation passes through $(10,150)$?", choices: ["$y = 15x$", "$y = \\frac{15}{x}$", "$y = 10x$", "$y = x + 140$"], correct: 0 },
+                { text: "Find $k$ if $y = 80$ when $x = 20$.", choices: ["$k = 4$", "$k = 1600$", "$k = 0,25$", "$k = 60$"], correct: 0 },
+                { text: "If $4$ notebooks cost $\\text{\\$}8$, how much will $18$ notebooks cost?", choices: ["$\\text{\\$}36$", "$\\text{\\$}32$", "$\\text{\\$}40$", "$\\text{\\$}30$"], correct: 0 },
+                { text: "Find $M$ if $(8,12)$ and $(24,M)$ are in a direct proportion.", choices: ["$M = 36$", "$M = 24$", "$M = 48$", "$M = 32$"], correct: 0 },
+                { text: "If $y$ is directly proportional to $x$ and passes through $(5,17)$, find $y$ when $x = 20$.", choices: ["$y = 68$", "$y = 51$", "$y = 85$", "$y = 60$"], correct: 0 },
+                { text: "Does the table show a direct relationship?", hasTable: true, tableCols: 3, tableData: { x: [2, 4, 6], y: [11, 22, 33] }, choices: ["Yes, $k = 5,5$", "No", "Yes, $k = 11$", "No, it is linear sequence mismatch"], correct: 0 },
+                { text: "Which equation represents a direct proportion with $k = 15$?", choices: ["$y = 15x$", "$y = \\frac{15}{x}$", "$y = x + 15$", "$xy = 15$"], correct: 0 },
+                { text: "Find $y$ in an inverse proportion when $x = 5$ if $y = 12$ when $x = 10$.", choices: ["$y = 24$", "$y = 6$", "$y = 60$", "$y = 15$"], correct: 0 },
+                { text: "Find $k$ for the points $(5,12)$ and $(6,10)$.", choices: ["$k = 60$", "$k = 2,4$", "$k = 30$", "$k = 120$"], correct: 0 },
+                { text: "$2$ printers print a booklet in $30\\text{ minutes}$. How long will $5$ printers take?", choices: ["$12\\text{ minutes}$", "$75\\text{ minutes}$", "$15\\text{ minutes}$", "$10\\text{ minutes}$"], correct: 0 },
+                { text: "Which equation represents an inverse proportion if $y = 4$ when $x = 25$?", choices: ["$y = \\frac{100}{x}$", "$y = 100x$", "$y = 6,25x$", "$xy = 29$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [4, 10, 20], y: [25, 10, 5] }, choices: ["Yes, $k = 100$", "No", "Yes, $k = 10$", "No, column scales linearly"], correct: 0 },
+                { text: "If $y = \frac{90}{x}$, find $y$ when $x = 15$.", choices: ["$y = 6$", "$y = 1350$", "$y = 9$", "$y = 5$"], correct: 0 },
+                { text: "Find the missing value $A$ in the inverse proportion table.", hasTable: true, tableCols: 3, tableData: { x: [2, 5, 10], y: [25, "A", 5] }, choices: ["$A = 10$", "$A = 12,5$", "$A = 8$", "$A = 15$"], correct: 0 },
+                { text: "A fixed amount of money is shared equally among $5$ students, and each gets $\\text{\\$}12$. How much will each student get if the money is shared among $10$ students?", choices: ["$\\text{\\$}6$", "$\\text{\\$}24$", "$\\text{\\$}10$", "$\\text{\\$}8$"], correct: 0 },
+                { text: "Which inverse proportion equation passes through $(4,12)$?", choices: ["$y = \\frac{48}{x}$", "$y = 48x$", "$y = 3x$", "$xy = 16$"], correct: 0 },
+                { text: "Find $k$ if $y = 11$ when $x = 4$.", choices: ["$k = 44$", "$k = 2,75$", "$k = 15$", "$k = 55$"], correct: 0 },
+                { text: "A school uses $4$ buses to transport students in $6$ trips. How many trips are needed if $8$ buses are used?", choices: ["$3$ trips", "$12$ trips", "$4$ trips", "$2$ trips"], correct: 0 },
+                { text: "Find $M$ if $(2,36)$ and $(12,M)$ are in an inverse proportion.", choices: ["$M = 6$", "$M = 18$", "$M = 3$", "$M = 12$"], correct: 0 },
+                { text: "If $y$ is inversely proportional to $x$ and passes through $(5,16)$, find $y$ when $x = 4$.", choices: ["$y = 20$", "$y = 8$", "$y = 40$", "$y = 12$"], correct: 0 },
+                { text: "Does the table show an inverse relationship?", hasTable: true, tableCols: 3, tableData: { x: [3, 6, 9], y: [18, 9, 6] }, choices: ["Yes, $k = 54$", "No", "Yes, $k = 18$", "No, it represents a linear shift function"], correct: 0 },
+                { text: "Which equation represents an inverse proportion with $k = 80$?", choices: ["$y = \\frac{80}{x}$", "$y = 80x$", "$xy = 40$", "$y = x - 80$"], correct: 0 }
+            ]
+        };
+
+        let AppState = {
+            view: 'dashboard',
+            mode: null,
+            testId: null,
+            index: 0,
+            records: {
+                1: { date: "—", score: "—", completed: false, answers: new Array(30).fill(null) },
+                2: { date: "—", score: "—", completed: false, answers: new Array(30).fill(null) },
+                3: { date: "—", score: "—", completed: false, answers: new Array(30).fill(null) },
+                4: { date: "—", score: "—", completed: false, answers: new Array(30).fill(null) }
+            },
+            practiceAnswers: new Array(25).fill(null),
+            savedTeacherResults: []
+        };
+
+
+        function getStudentProfile() {
+            let first = document.getElementById('student-first') ? document.getElementById('student-first').value.trim().toUpperCase() : "";
+            let last = document.getElementById('student-last') ? document.getElementById('student-last').value.trim().toUpperCase() : "";
+            if(!first) first = (localStorage.getItem("id2_first_name") || "").toUpperCase();
+            if(!last) last = (localStorage.getItem("id2_last_name") || "").toUpperCase();
+
+            // Direct and Inverse practice do not have a name-entry screen.
+            // Use temporary names so the buttons open immediately. The result is still saved.
+            if(!first) first = "STUDENT";
+            if(!last) last = "PRACTICE";
+
+            localStorage.setItem("id2_first_name", first);
+            localStorage.setItem("id2_last_name", last);
+            return { first, last };
+        }
+
+        function getCurrentQuestions() {
+            if(AppState.mode === 'test') return TestData[AppState.testId];
+            return AppState.mode === 'direct' ? PoolDirect : PoolInverse;
+        }
+
+        function buildAnswerDetails(questions, answers) {
+            return questions.map((q, i) => ({
+                question_number: i + 1,
+                question: q.text,
+                selected_index: answers[i],
+                selected_answer: answers[i] !== null ? q.choices[answers[i]] : null,
+                correct_index: q.correct,
+                correct_answer: q.choices[q.correct],
+                is_correct: answers[i] === q.correct
+            }));
+        }
+
+        async function saveResultToSupabase(result) {
+            const localResults = JSON.parse(localStorage.getItem("id2_local_results") || "[]");
+            localResults.unshift(result);
+            localStorage.setItem("id2_local_results", JSON.stringify(localResults.slice(0, 250)));
+
+            if(!supabaseClient) {
+                console.warn("Supabase is not configured yet. Result saved locally only.");
+                return { savedOnline: false, error: "Supabase not configured" };
+            }
+
+            const { error } = await supabaseClient.from(SUPABASE_TABLE).insert([{
+                first_name: result.first_name,
+                last_name: result.last_name,
+                mode: result.mode,
+                test_id: result.test_id,
+                score: result.score,
+                total: result.total,
+                percentage: result.percentage,
+                answers: result.answers
+            }]);
+
+            if(error) {
+                console.error("Supabase save error:", error);
+                return { savedOnline: false, error: error.message };
+            }
+            return { savedOnline: true, error: null };
+        }
+
+        async function finalizeAndSaveResult() {
+            const questions = getCurrentQuestions();
+            const answers = AppState.mode === 'test' ? AppState.records[AppState.testId].answers : AppState.practiceAnswers;
+            const total = questions.length;
+            if(answers.filter(a => a !== null).length !== total) return;
+
+            const profile = getStudentProfile();
+            if(!profile.first || !profile.last) {
+                alert("Please enter your first name and last name so your result can be saved.");
+                return;
+            }
+
+            let score = 0;
+            questions.forEach((q, i) => { if(answers[i] === q.correct) score++; });
+            const percentage = Math.round((score / total) * 100);
+            const result = {
+                created_at: new Date().toISOString(),
+                first_name: profile.first,
+                last_name: profile.last,
+                mode: AppState.mode === 'test' ? "Combined Direct & Inverse" : (AppState.mode === 'direct' ? "Direct Proportion Only" : "Inverse Proportion Only"),
+                test_id: AppState.mode === 'test' ? AppState.testId : null,
+                score,
+                total,
+                percentage,
+                answers: buildAnswerDetails(questions, answers)
+            };
+
+            const saveStatus = await saveResultToSupabase(result);
+            const saveLine = saveStatus.savedOnline ? "Saved to Supabase." : "Saved locally. Supabase is not configured yet.";
+            alert(`${result.mode} Completed!\nFinal Score: ${score}/${total} (${percentage}%)\n${saveLine}`);
+            return result;
+        }
+
+        function openGateway() {
+            document.getElementById('view-dashboard').style.display = 'none';
+            document.getElementById('view-gateway').style.display = 'flex';
+            renderTable();
+        }
+
+        function closeGateway() {
+            document.getElementById('view-gateway').style.display = 'none';
+            document.getElementById('view-dashboard').style.display = 'flex';
+        }
+
+        async function renderTable() {
+            let html = "";
+            let prevComp = true;
+            const f = document.getElementById('student-first').value.trim().toUpperCase();
+            const l = document.getElementById('student-last').value.trim().toUpperCase();
+
+            for(let i=1; i<=4; i++) {
+                let rec = AppState.records[i];
+                const alreadyCompletedOnline = f && l ? await hasStudentCompletedPracticeTest(f, l, i) : false;
+                const isLocked = !prevComp || alreadyCompletedOnline;
+                const rowClass = `${prevComp ? '' : 'locked-row'} ${alreadyCompletedOnline ? 'locked-completed-row' : ''}`;
+                const actionLabel = alreadyCompletedOnline ? 'Completed' : (rec.completed ? 'Review' : 'Start');
+                const actionCell = alreadyCompletedOnline
+                    ? `<span class="completed-test-note">Completed</span>`
+                    : `<button class="launch-btn" onclick="launchTest(${i})" ${prevComp ? '' : 'disabled'}>${actionLabel}</button>`;
+
+                html += `<tr class="${rowClass}">
+                    <td>Practice Test ${i}</td>
+                    <td>${rec.date}</td>
+                    <td>${rec.score}</td>
+                    <td>${actionCell}</td>
+                </tr>`;
+                prevComp = rec.completed || alreadyCompletedOnline;
+            }
+            document.getElementById('gateway-table-body').innerHTML = html;
+        }
+
+        async function launchTest(id) {
+            const f = document.getElementById('student-first').value.trim().toUpperCase();
+            const l = document.getElementById('student-last').value.trim().toUpperCase();
+            if(!f || !l) return alert("ATTENTION: Please enter both your First Name and Last Name.");
+
+            const alreadyCompleted = await hasStudentCompletedPracticeTest(f, l, id);
+            if(alreadyCompleted) {
+                await renderTable();
+                return alert(`You have already completed Practice Test ${id}. You cannot repeat this test.`);
+            }
+
+            const access = await isPracticeTestOpen(id);
+            if(!access.open) {
+                return alert(`Practice Test ${id} is closed. Please wait for your teacher to open it.`);
+            }
+
+            AppState.mode = 'test';
+            AppState.testId = id;
+            AppState.index = 0;
+            document.getElementById('view-gateway').style.display = 'none';
+            document.getElementById('view-quiz').style.display = 'flex';
+            document.getElementById('quiz-header').textContent = `TEST ${id} // ${f} ${l}`;
+            document.documentElement.style.setProperty('--dynamic-accent', 'var(--accent-both)');
+            loadQuestion();
+        }
+
+        function startPractice(m) {
+            const profile = getStudentProfile();
+            if(!profile.first || !profile.last) return alert("Please enter your first name and last name.");
+            AppState.mode = m;
+            AppState.index = 0;
+            AppState.practiceAnswers = new Array(25).fill(null);
+            AppState.practiceCompleted = false;
+            document.getElementById('view-dashboard').style.display = 'none';
+            document.getElementById('view-quiz').style.display = 'flex';
+            document.getElementById('quiz-header').textContent = m === 'direct' ? 'Direct Proportion Pool' : 'Inverse Proportion Pool';
+            document.documentElement.style.setProperty('--dynamic-accent', m === 'direct' ? 'var(--accent-direct)' : 'var(--accent-inverse)');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            let q;
+            let ansArr;
+            if(AppState.mode === 'test') {
+                q = TestData[AppState.testId][AppState.index];
+                ansArr = AppState.records[AppState.testId].answers;
+            } else {
+                let pool = AppState.mode === 'direct' ? PoolDirect : PoolInverse;
+                q = pool[AppState.index % pool.length]; 
+                ansArr = AppState.practiceAnswers;
+            }
+
+            document.getElementById('prob-num').textContent = `Question ${AppState.index + 1}`;
+            document.getElementById('prob-text').innerHTML = q.text;
+            
+            let tblArea = document.getElementById('prob-table-area');
+            tblArea.innerHTML = "";
+            if(q.hasTable) {
+                let h = `<table class="horiz-math-table"><tr><th>$x$</th>`;
+                q.tableData.x.forEach(v => h += `<td>$${v}$</td>`);
+                h += `</tr><tr><th>$y$</th>`;
+                q.tableData.y.forEach(v => h += `<td>$${v}$</td>`);
+                h += `</tr></table>`;
+                tblArea.innerHTML = h;
+            }
+
+            let chArea = document.getElementById('choices-area');
+            chArea.innerHTML = "";
+            q.choices.forEach((c, i) => {
+                let btn = document.createElement('button');
+                btn.className = `choice-option ${ansArr[AppState.index] === i ? 'selected' : ''}`;
+                btn.onclick = () => selectChoice(i);
+                btn.innerHTML = `<span class="choice-letter">${String.fromCharCode(65+i)}</span><span>${c}</span>`;
+                if(q.hasSketches) btn.innerHTML += q.sketches[i];
+                chArea.appendChild(btn);
+            });
+
+            let nodeArea = document.getElementById('node-grid');
+            nodeArea.innerHTML = "";
+            let total = AppState.mode === 'test' ? 30 : 25;
+            for(let i=0; i<total; i++) {
+                let n = document.createElement('button');
+                n.className = `node-btn ${AppState.index === i ? 'active-node' : ''} ${ansArr[i] !== null ? 'answered-node' : ''}`;
+                n.textContent = i+1;
+                n.onclick = () => { AppState.index = i; loadQuestion(); };
+                nodeArea.appendChild(n);
+            }
+
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        }
+
+        function selectChoice(idx) {
+            let ansArr = AppState.mode === 'test' ? AppState.records[AppState.testId].answers : AppState.practiceAnswers;
+            ansArr[AppState.index] = idx;
+            loadQuestion();
+            if(AppState.mode === 'test') {
+                checkCompletion();
+            } else {
+                checkPracticeCompletion();
+            }
+        }
+
+        function checkPracticeCompletion() {
+            if(AppState.practiceAnswers.filter(a => a !== null).length === 25) {
+                const pool = AppState.mode === 'direct' ? PoolDirect : PoolInverse;
+                let score = 0;
+                pool.forEach((q, i) => { if(AppState.practiceAnswers[i] === q.correct) score++; });
+                alert(`${AppState.mode === 'direct' ? 'Direct Proportion' : 'Inverse Proportion'} Practice Completed!\nFinal Score: ${score}/25 (${Math.round((score/25)*100)}%)`);
+            }
+        }
+
+        async function checkCompletion() {
+            let rec = AppState.records[AppState.testId];
+            if(rec.answers.filter(a => a !== null).length === 30 && !rec.completed) {
+                let score = 0;
+                TestData[AppState.testId].forEach((q, i) => { if(rec.answers[i] === q.correct) score++; });
+                rec.completed = true;
+                rec.score = Math.round((score/30)*100) + "%";
+                rec.date = new Date().toLocaleDateString();
+                await finalizeAndSaveResult();
+                await renderTable();
+            }
+        }
+
+
+
+
+        async function hasStudentCompletedPracticeTest(firstName, lastName, testId) {
+            const first = (firstName || "").trim().toUpperCase();
+            const last = (lastName || "").trim().toUpperCase();
+            if(!first || !last) return false;
+
+            if(supabaseClient) {
+                const { data, error } = await supabaseClient
+                    .from(SUPABASE_TABLE)
+                    .select("id")
+                    .eq("first_name", first)
+                    .eq("last_name", last)
+                    .eq("mode", "Combined Direct & Inverse")
+                    .eq("test_id", testId)
+                    .limit(1);
+
+                if(error) {
+                    console.warn("Could not check previous attempt in Supabase.", error);
+                } else {
+                    return Array.isArray(data) && data.length > 0;
+                }
+            }
+
+            // Local backup check if Supabase is unavailable.
+            const localResults = JSON.parse(localStorage.getItem("id2_local_results") || "[]");
+            return localResults.some(r =>
+                (r.first_name || "").toUpperCase() === first &&
+                (r.last_name || "").toUpperCase() === last &&
+                r.mode === "Combined Direct & Inverse" &&
+                Number(r.test_id) === Number(testId)
+            );
+        }
+
+        async function isPracticeTestOpen(testId) {
+            if(!supabaseClient) {
+                // Local preview mode: allow opening so the file can still be tested without internet/Supabase.
+                return { open: true, reason: "local preview" };
+            }
+
+            const { data, error } = await supabaseClient
+                .from(SUPABASE_ACCESS_TABLE)
+                .select("is_open")
+                .eq("test_id", testId)
+                .single();
+
+            if(error || !data) {
+                console.warn("Could not read practice test access.", error);
+                return { open: false, reason: "not configured" };
+            }
+
+            return { open: data.is_open === true, reason: "supabase" };
+        }
+
+        async function loadPracticeTestAccess() {
+            const grid = document.getElementById("access-control-grid");
+            if(!grid) return;
+
+            if(!supabaseClient) {
+                grid.innerHTML = `<div class="access-card" style="grid-column:1/-1">
+                    <div class="access-card-title">Supabase Not Ready</div>
+                    <div class="access-status closed">Access control needs Supabase connection.</div>
+                </div>`;
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from(SUPABASE_ACCESS_TABLE)
+                .select("*")
+                .order("test_id", { ascending: true });
+
+            if(error) {
+                grid.innerHTML = `<div class="access-card" style="grid-column:1/-1">
+                    <div class="access-card-title">Access Control Error</div>
+                    <div class="access-status closed">${error.message}</div>
+                </div>`;
+                return;
+            }
+
+            const rows = data || [];
+            grid.innerHTML = [1,2,3,4].map(id => {
+                const row = rows.find(r => Number(r.test_id) === id);
+                const isOpen = row && row.is_open === true;
+                return `<div class="access-card">
+                    <div class="access-card-title">Practice Test ${id}</div>
+                    <div class="access-status ${isOpen ? 'open' : 'closed'}">${isOpen ? 'Open' : 'Closed'}</div>
+                    <div class="access-controls">
+                        <button class="access-btn open" onclick="setPracticeTestAccess(${id}, true)">Open</button>
+                        <button class="access-btn close" onclick="setPracticeTestAccess(${id}, false)">Close</button>
+                    </div>
+                </div>`;
+            }).join("");
+        }
+
+        async function setPracticeTestAccess(testId, isOpen) {
+            if(!supabaseClient) return alert("Supabase is not ready. Please check your connection.");
+
+            const { error } = await supabaseClient
+                .from(SUPABASE_ACCESS_TABLE)
+                .upsert({ test_id: testId, is_open: isOpen, updated_at: new Date().toISOString() }, { onConflict: "test_id" });
+
+            if(error) {
+                alert("Could not update test access: " + error.message);
+                return;
+            }
+
+            await loadPracticeTestAccess();
+        }
+
+        function openTeacherLogin() {
+            const code = prompt("Enter Teacher Code:");
+            if(code !== "DELTA2026") {
+                if(code !== null) alert("Incorrect teacher code.");
+                return;
+            }
+            document.getElementById('view-dashboard').style.display = 'none';
+            document.getElementById('view-gateway').style.display = 'none';
+            document.getElementById('view-quiz').style.display = 'none';
+            document.getElementById('view-teacher').style.display = 'flex';
+            loadPracticeTestAccess();
+            loadTeacherResults();
+        }
+
+        function exitTeacherView() {
+            document.getElementById('view-teacher').style.display = 'none';
+            document.getElementById('view-dashboard').style.display = 'flex';
+        }
+
+        async function loadTeacherResults() {
+            const body = document.getElementById('teacher-results-body');
+            const status = document.getElementById('teacher-status');
+            body.innerHTML = `<tr><td colspan="7">Loading results...</td></tr>`;
+
+            let results = [];
+            if(supabaseClient) {
+                const { data, error } = await supabaseClient
+                    .from(SUPABASE_TABLE)
+                    .select("*")
+                    .order("created_at", { ascending: false })
+                    .limit(200);
+
+                if(error) {
+                    status.textContent = "Could not load Supabase results. Showing local results only.";
+                    console.error(error);
+                } else {
+                    results = data || [];
+                    status.textContent = `Loaded ${results.length} result(s) from Supabase.`;
+                }
+            } else {
+                status.textContent = "Supabase is not configured yet. Showing local results from this browser only.";
+            }
+
+            const localResults = JSON.parse(localStorage.getItem("id2_local_results") || "[]");
+            if(!results.length && localResults.length) results = localResults;
+
+            AppState.savedTeacherResults = results;
+
+            if(!results.length) {
+                body.innerHTML = `<tr><td colspan="7">No student results found yet.</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = results.map((r, i) => {
+                const date = r.created_at ? new Date(r.created_at).toLocaleString() : "—";
+                const student = `${r.last_name || ""}, ${r.first_name || ""}`;
+                const testLabel = r.test_id ? `Practice Test ${r.test_id}` : "—";
+                return `<tr>
+                    <td>${date}</td>
+                    <td>${student}</td>
+                    <td>${r.mode || "—"}</td>
+                    <td>${testLabel}</td>
+                    <td>${r.score}/${r.total}</td>
+                    <td><span class="score-pill">${r.percentage}%</span></td>
+                    <td><button class="teacher-btn primary" onclick="printStudentResult(${i})">Print PDF</button></td>
+                </tr>`;
+            }).join("");
+        }
+
+        function cleanMathText(value) {
+            if(value === null || value === undefined) return "";
+            return String(value)
+                .replaceAll("\\\\text{\\\\$}", "$")
+                .replaceAll("\\\\text{", "")
+                .replaceAll("}", "")
+                .replaceAll("$", "")
+                .replaceAll("\\\\frac", "frac")
+                .replaceAll("\\\\", "");
+        }
+
+        function printStudentResult(index) {
+            const r = AppState.savedTeacherResults[index];
+            if(!r) return alert("Result not found.");
+            const answers = Array.isArray(r.answers) ? r.answers : [];
+            const student = `${r.first_name || ""} ${r.last_name || ""}`.trim();
+            const date = r.created_at ? new Date(r.created_at).toLocaleString() : new Date().toLocaleString();
+            const testLabel = r.test_id ? `Practice Test ${r.test_id}` : r.mode;
+
+            const rows = answers.map(a => {
+                const mark = a.is_correct ? "Correct" : "Incorrect";
+                const markClass = a.is_correct ? "correct" : "incorrect";
+                return `<tr>
+                    <td>${a.question_number}</td>
+                    <td>${a.question}</td>
+                    <td>${a.selected_answer || "No answer"}</td>
+                    <td>${a.correct_answer || ""}</td>
+                    <td class="${markClass}">${mark}</td>
+                </tr>`;
+            }).join("");
+
+            const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Student Result - ${student}</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\\\(', '\\\\)']], displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']] },
+  svg: { fontCache: 'global' }
+};
+<\/script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"><\/script>
+<style>
+    body { font-family: Arial, sans-serif; color: #111827; padding: 30px; }
+    .report-card { max-width: 1100px; margin: 0 auto; border: 2px solid #111827; border-radius: 18px; overflow: hidden; }
+    .header { background: linear-gradient(135deg, #0f172a, #1e1b4b); color: white; padding: 28px 34px; }
+    .brand { color: #f8d36a; font-size: 13px; letter-spacing: 2px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; }
+    h1 { margin: 0; font-size: 30px; letter-spacing: 1px; text-transform: uppercase; }
+    .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 22px 34px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+    .meta-box { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+    .label { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 800; letter-spacing: .8px; }
+    .value { margin-top: 6px; font-size: 18px; font-weight: 800; color: #111827; }
+    .score { color: #7c3aed; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 10px 12px; vertical-align: top; font-size: 13px; }
+    th { background: #111827; color: white; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .7px; }
+    .correct { color: #047857; font-weight: 800; }
+    .incorrect { color: #b91c1c; font-weight: 800; }
+    .footer { padding: 18px 34px; text-align: center; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+    @media print { body { padding: 0; } .report-card { border-radius: 0; border: none; } button { display:none; } }
+</style>
+</head>
+<body>
+<div class="report-card">
+    <div class="header">
+        <div class="brand">Delta Matemática | Proportional Relationships</div>
+        <h1>Student Result Report</h1>
+    </div>
+    <div class="meta">
+        <div class="meta-box"><div class="label">Student</div><div class="value">${student}</div></div>
+        <div class="meta-box"><div class="label">Mode</div><div class="value">${testLabel}</div></div>
+        <div class="meta-box"><div class="label">Score</div><div class="value score">${r.score}/${r.total} (${r.percentage}%)</div></div>
+        <div class="meta-box"><div class="label">Date</div><div class="value">${date}</div></div>
+    </div>
+    <table>
+        <thead>
+            <tr><th>#</th><th>Question</th><th>Student Answer</th><th>Correct Answer</th><th>Result</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">&copy; 2026 DELTA MATEMATICA | LUIS RAMOS JR. All Rights Reserved.</div>
+</div>
+<script>
+setTimeout(() => { window.print(); }, 900);
+<\/script>
+</body>
+</html>`;
+            const win = window.open("", "_blank");
+            win.document.open();
+            win.document.write(html);
+            win.document.close();
+        }
+
+        function exitQuiz() {
+            document.getElementById('view-quiz').style.display = 'none';
+            if(AppState.mode === 'test') {
+                document.getElementById('view-gateway').style.display = 'flex';
+                renderTable();
+            } else {
+                document.getElementById('view-dashboard').style.display = 'flex';
+            }
+        }
+
+
+        function bindOpeningButtons() {
+            const directBtn = document.getElementById("btn-direct");
+            const inverseBtn = document.getElementById("btn-inverse");
+            const bothBtn = document.getElementById("btn-both");
+            const teacherBtn = document.getElementById("btn-teacher");
+
+            function bindClickAndKey(el, action) {
+                if(!el) return;
+                el.addEventListener("click", function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    action();
+                });
+                el.addEventListener("keydown", function(event) {
+                    if(event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        action();
+                    }
+                });
+            }
+
+            bindClickAndKey(directBtn, function() { startPractice("direct"); });
+            bindClickAndKey(inverseBtn, function() { startPractice("inverse"); });
+            bindClickAndKey(bothBtn, function() { openGateway(); });
+            bindClickAndKey(teacherBtn, function() { openTeacherLogin(); });
+        }
+
+        document.addEventListener("DOMContentLoaded", bindOpeningButtons);
+
+        // Backup: if the document is already loaded, bind immediately.
+        if (document.readyState === "interactive" || document.readyState === "complete") {
+            bindOpeningButtons();
+        }
+
+        // Expose main functions for browser compatibility and debugging.
+        window.startPractice = startPractice;
+        window.openGateway = openGateway;
+        window.openTeacherLogin = openTeacherLogin;
+        window.setPracticeTestAccess = setPracticeTestAccess;
+        window.launchTest = launchTest;
+
+    </script>
+</body>
+</html>
